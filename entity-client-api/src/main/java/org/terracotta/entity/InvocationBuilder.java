@@ -19,6 +19,7 @@
 package org.terracotta.entity;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -50,7 +51,7 @@ import java.util.concurrent.TimeoutException;
  * </ul>
  * 
  * <p>Requested acks generally only apply to when the {@link #invoke()} method will return but some messages explicitly
- * change the behavior of the returned {@link InvokeFuture#get()} (to either wait on COMPLETED or RETIRED).</p>
+ * change the behavior of the returned {@link java.util.concurrent.Future#get()} (to either wait on COMPLETED or RETIRED).</p>
  * 
  * @param <M> An {@link EntityMessage}
  * @param <R> An {@link EntityResponse}
@@ -87,7 +88,7 @@ public interface InvocationBuilder<M extends EntityMessage, R extends EntityResp
    * <p>Note that, unless also requested with the RECEIVED ack, this will only ensure that the message has completed on
    * the active, and may not yet have been run on (or seen by) any passives.</p>
    * 
-   * <p>This method is not of use to most applications since configuring and using {@link InvokeFuture#get()} is
+   * <p>This method is not of use to most applications since configuring and using {@link Future#get()} is
    * generally more useful and descriptive.</p>
    * 
    * @return this
@@ -99,7 +100,7 @@ public interface InvocationBuilder<M extends EntityMessage, R extends EntityResp
    * 
    * <p>Once a message has been RETIRED, it will <b>not</b> be re-sent in the event of a restart or fail-over.</p>
    * 
-   * <p>This method is not of use to most applications since configuring and using {@link InvokeFuture#get()} is
+   * <p>This method is not of use to most applications since configuring and using {@link Future#get()} is
    * generally more useful and descriptive (by default, it blocks until RETIRED).</p>
    * 
    * @return this
@@ -145,11 +146,11 @@ public interface InvocationBuilder<M extends EntityMessage, R extends EntityResp
    */
   public InvocationBuilder<M, R> withExecutor(Executor useForMonitorDelivery);
   /**
-   * Changes the response order of the invoke.  Normally, {@link InvokeFuture#get()} 
+   * Changes the response order of the invoke.  Normally, {@link Future#get()}
    * will return only the result of the original message sent to the server as a result of 
    * {@link org.terracotta.entity.ActiveServerEntity#invokeActive(ActiveInvokeContext, EntityMessage)}
-   * if this option is selected, the value of {@link InvokeFuture#get()} is completely 
-   * time order based.  The value returned by {@link InvokeFuture#get()} will be the last
+   * if this option is selected, the value of {@link Future#get()} is completely
+   * time order based.  The value returned by {@link Future#get()} will be the last
    * {@link EntityResponse} delivered to the invocation before the retire regardless of whether 
    * the {@link EntityResponse} was the result of a return from {@link org.terracotta.entity.ActiveServerEntity#invokeActive(ActiveInvokeContext, EntityMessage)}
    * or a {@link org.terracotta.entity.ActiveInvokeChannel#sendResponse(EntityResponse)} call.
@@ -157,15 +158,15 @@ public interface InvocationBuilder<M extends EntityMessage, R extends EntityResp
    * 
    * Update: This method has been deprecated as it does not provide a reasonable, predictable 
    * method of handling multiple messages returned from an invoke.  Now, only the result of the 
-   * server invoke will be returned via {@link InvokeFuture#get()}.  Consider using 
-   * {@link #blockGetOnRetire(boolean)} if it is desired to have {@link InvokeFuture#get()}  
+   * server invoke will be returned via {@link Future#get()}.  Consider using
+   * {@link #blockGetOnRetire(boolean)} if it is desired to have {@link Future#get()}
    * return only after the {@link org.terracotta.entity.ActiveInvokeChannel} has been closed.
    * @return this
    */
   @Deprecated
   public InvocationBuilder<M, R> asDeferredResponse();
   /**
-   * <p>By default, the {@link get()} blocks until the RETIRED ack is received (meaning that this message will NOT be
+   * <p>By default, the {@link Future#get()} blocks until the RETIRED ack is received (meaning that this message will NOT be
    * re-sent).</p>
    * 
    * <p>The RETIRED ack comes after the COMPLETED ack but can come much later in 2 situations:</p>
@@ -181,7 +182,7 @@ public interface InvocationBuilder<M extends EntityMessage, R extends EntityResp
    * <p>Note that, due to re-sends, it is possible to see the COMPLETED ack, multiple times, before seeing the final
    * RETIRED (which only happens once).</p>
    * 
-   * <p>If {@link get()} is blocking until RETIRED, it will return the result included in the <b>final</b> COMPLETED
+   * <p>If {@link Future#get()} is blocking until RETIRED, it will return the result included in the <b>final</b> COMPLETED
    * ack.  If it is only blocking until COMPLETED, it will return the result included in the <b>first</b> COMPLETED ack
    * (ignoring the results from any later COMPLETED acks which arrive).</p>
    * 
@@ -199,21 +200,21 @@ public interface InvocationBuilder<M extends EntityMessage, R extends EntityResp
 
   /**
    * <p>Actually sends the invocation staged in the receiver with encoded message {@link M} using
-   * {@link MessageCodec<M, R>} to the server.  Note that this will wait for any requested acknowledgements before
-   * returning.  The blocking behavior of the returned {@link InvokeFuture} will depend on how it was configured via
+   * {@link MessageCodec} to the server.  Note that this will wait for any requested acknowledgements before
+   * returning.  The blocking behavior of the returned {@code Future} will depend on how it was configured via
    * {@link #blockGetOnRetire(boolean)}.</p>
    *
-   * <p>Note that returned {@link InvokeFuture} will decode the response from server into {@link R} using
-   * {@link MessageCodec<M, R>}</p>
+   * <p>Note that returned {@code Future} will decode the response from server into {@link R} using
+   * {@link MessageCodec}</p>
    * 
    * @return The asynchronous result of the invocation
    * @throws MessageCodecException if there is an issue with encoding {@link M}/decoding {@link R}
    */
-  public InvokeFuture<R> invoke() throws MessageCodecException;
+  public Future<R> invoke() throws MessageCodecException;
 
   /**
    * <p>Same as invoke with added timeout parameters.  This timeout is used to specify a time limit
-   * for the client to send the message to the server which is separate from {@link InvokeFuture#getWithTimeout} 
+   * for the client to send the message to the server which is separate from {@link Future#get(long, TimeUnit)}
    * which specifies the time limit for the response to received from the server</p>
    * 
    * @param time
@@ -223,5 +224,5 @@ public interface InvocationBuilder<M extends EntityMessage, R extends EntityResp
    * @throws java.util.concurrent.TimeoutException
    * @throws MessageCodecException if there is an issue with encoding {@link M}/decoding {@link R}
    */
-  public InvokeFuture<R> invokeWithTimeout(long time, TimeUnit units) throws InterruptedException, TimeoutException, MessageCodecException;
+  public Future<R> invokeWithTimeout(long time, TimeUnit units) throws InterruptedException, TimeoutException, MessageCodecException;
 }
